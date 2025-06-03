@@ -69,12 +69,18 @@ app.post('/invoke', async (req, res) => {
     const slots = response.data?.data?.slots?.[preferredDate] || [];
     console.log(`✅ Found ${slots.length} total slots`);
 
+    slots.forEach(slot => {
+  const localTime = dayjs(slot.time).tz(DEFAULT_TIMEZONE);
+  console.log(`🕐 Before filter Slot: ${localTime.format('h:mm A')} | Hour: ${localTime.hour()}`);
+});
+
+
     const matchingSlots = slots.filter(slot => {
-      const hour = dayjs.utc(slot.time).hour();
-      return preferredTime === 'morning'
-        ? hour >= 9 && hour < 12
-        : hour >= 13 && hour < 17;
-    });
+  const hour = dayjs(slot.time).tz(DEFAULT_TIMEZONE).hour();
+  return preferredTime === 'morning'
+    ? hour >= 9 && hour < 12
+    : hour >= 13 && hour < 17;
+});
 
     console.log(`🕒 Matching slots (${preferredTime}): ${matchingSlots.length}`);
 
