@@ -1,33 +1,30 @@
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
 import timezone from 'dayjs/plugin/timezone.js';
-
-dayjs.extend(utc);
-dayjs.extend(timezone);
-
 import dotenv from 'dotenv';
-dotenv.config();
-console.log('🔐 CALCOM_API_KEY:', process.env.CALCOM_API_KEY ? '✔️ present' : '❌ missing');
-
 import express from 'express';
 import axios from 'axios';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
+dayjs.extend(utc);
+dayjs.extend(timezone);
+dotenv.config();
+
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
-
-// Serve static files in `public/` (e.g. your openapi.json and logo.png)
-app.use('/.well-known', express.static(path.join(__dirname, 'public/.well-known')));
-app.use('/', express.static(path.join(__dirname, 'public')));
-
-
 app.use(express.json());
+
+// Serve .well-known and openapi.json for MCP
+app.use('/.well-known', express.static(path.join(__dirname, 'public/.well-known')));
+app.use('/openapi.json', express.static(path.join(__dirname, 'public/openapi.json')));
 
 const CALCOM_API_KEY = process.env.CALCOM_API_KEY;
 const EVENT_TYPE_ID = '2576576';
 const EVENT_TYPE_SLUG = 'bland-painworth-law-initial-consultation';
 const DEFAULT_TIMEZONE = 'America/Edmonton';
+
+console.log('🔐 CALCOM_API_KEY:', CALCOM_API_KEY ? '✔️ present' : '❌ missing');
 
 const calcom = axios.create({
   baseURL: 'https://api.cal.com/v2',
@@ -38,26 +35,24 @@ const calcom = axios.create({
 
 app.post('/invoke', async (req, res) => {
   try {
-    console.log('\n📥 Received /invoke request');
-    const input = req.body.toolInput || {};
-    const { name, email, preferredDate, preferredTime, topic } = input;
+    const input = req.body.toolInput || req.body || {};
+    console.log('🔎 Raw req.body:', JSON.stringify(req.body, null, 2));
+    console.log('🔎 toolInput:', input);
 
-    console.log('🔎 toolInput:', {
-      name,
-      email,
-      preferredDate,
-      preferredTime,
-      topic
-    });
+    const name = input.name || 'Client';
+    const email = input.email;
+    const preferredDate = input.preferredDate; // in YYYY-MM-DD
+    const preferredTime = input.preferredTime?.toLowerCase(); // "morning" or "afternoon"
+    const notes = input.topic || 'Follow-up consultation';
 
     if (!email || !preferredDate || !preferredTime) {
       console.log('❌ Missing required fields. Responding with error.');
       return res.status(400).json({
-        output: `Hi ${name || 'client'}. Please provide an email, preferred date (YYYY-MM-DD), and time of day (morning or afternoon).`
+        output: `Hi ${name}. Please provide an email, preferred date (YYYY-MM-DD), and time of day (morning or afternoon).`
       });
     }
 
-    console.log(`🕓 Checking availability on ${preferredDate} in the ${preferredTime}`);
+    console.log(`📅 Checking availability for ${preferredDate}, ${preferredTime}`);
 
     const startTime = `${preferredDate}T00:00:00.000Z`;
     const endTime = `${preferredDate}T23:59:59.999Z`;
@@ -72,16 +67,18 @@ app.post('/invoke', async (req, res) => {
     });
 
     const slots = response.data?.data?.slots?.[preferredDate] || [];
+    console.log(`✅ Found ${slots.length} total slots`);
 
     const matchingSlots = slots.filter(slot => {
-      const hour = dayjs(slot.time).tz(DEFAULT_TIMEZONE).hour();
+      const hour = dayjs.utc(slot.time).hour();
       return preferredTime === 'morning'
-        ? hour >= 5 && hour < 12
-        : hour >= 12 && hour < 17;
+        ? hour >= 9 && hour < 12
+        : hour >= 13 && hour < 17;
     });
 
+    console.log(`🕒 Matching slots (${preferredTime}): ${matchingSlots.length}`);
+
     if (matchingSlots.length === 0) {
-      console.log('🚫 No matching slots found.');
       return res.json({
         output: `Hi ${name}. Sorry, there are no available ${preferredTime} slots on ${preferredDate}. Please try another date or time.`
       });
@@ -89,7 +86,6 @@ app.post('/invoke', async (req, res) => {
 
     const chosenSlot = matchingSlots[0];
     const formattedTime = dayjs(chosenSlot.time).tz(DEFAULT_TIMEZONE).format('h:mm A');
-    console.log(`✅ Found slot: ${chosenSlot.time} (${formattedTime} Edmonton time)`);
 
     return res.json({
       output: `Hi ${name}. I found an available time on ${preferredDate} at ${formattedTime} (Edmonton time). Please confirm if this works or choose another time.`
@@ -103,12 +99,12 @@ app.post('/invoke', async (req, res) => {
       message: err.message
     });
     return res.status(500).json({
-      output: `Sorry, ${req.body.toolInput?.name || 'client'}, something went wrong while checking availability.`
+      output: `Sorry, ${req.body.toolInput?.name || req.body?.name || 'client'}, something went wrong while checking availability.`
     });
   }
 });
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => {
-  console.log(`📅 Appointment MCP tool using Cal.com v2 is running on port ${port}`);
+  console.log(`📡 Appointment MCP tool using Cal.com v2 is running on port ${port}`);
 });
