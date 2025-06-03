@@ -11,8 +11,17 @@ console.log('🔐 CALCOM_API_KEY:', process.env.CALCOM_API_KEY ? '✔️ present
 
 import express from 'express';
 import axios from 'axios';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
+
+// Serve static files in `public/` (e.g. your openapi.json and logo.png)
+app.use('/.well-known', express.static(path.join(__dirname, 'public/.well-known')));
+app.use('/', express.static(path.join(__dirname, 'public')));
+
+
 app.use(express.json());
 
 const CALCOM_API_KEY = process.env.CALCOM_API_KEY;

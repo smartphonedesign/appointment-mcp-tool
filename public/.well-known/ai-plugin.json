@@ -1,0 +1,17 @@
+{
+  "schema_version": "v1",
+  "name_for_model": "appointment_scheduler",
+  "name_for_human": "Appointment Scheduler",
+  "description_for_model": "An MCP-compatible tool that helps schedule an appointment for a follow-up consultation using Cal.com. You must provide name, email, preferredDate (YYYY-MM-DD), and preferredTime ('morning' or 'afternoon'). Optionally provide a topic for the meeting.",
+  "description_for_human": "Book a follow-up consultation appointment. Provide a name, email, and preferred date/time.",
+  "auth": {
+    "type": "none"
+  },
+  "api": {
+    "type": "openapi",
+    "url": "https://appointment-mcp-tool.onrender.com/openapi.json"
+  },
+  "logo_url": "https://appointment-mcp-tool.onrender.com/logo.png",
+  "contact_email": "you@example.com",
+  "legal_info_url": "https://yourdomain.com/legal"
+}

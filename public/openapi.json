@@ -1,0 +1,83 @@
+{
+  "openapi": "3.0.1",
+  "info": {
+    "title": "Appointment Scheduler Tool",
+    "version": "1.0.0",
+    "description": "Schedules a follow-up appointment using Cal.com. Requires a name, email, preferred date, and time of day."
+  },
+  "paths": {
+    "/invoke": {
+      "post": {
+        "operationId": "scheduleAppointment",
+        "summary": "Schedule an appointment",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "toolInput": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string",
+                        "description": "Name of the user"
+                      },
+                      "email": {
+                        "type": "string",
+                        "description": "User's email address"
+                      },
+                      "preferredDate": {
+                        "type": "string",
+                        "format": "date",
+                        "description": "Preferred date in YYYY-MM-DD format"
+                      },
+                      "preferredTime": {
+                        "type": "string",
+                        "enum": ["morning", "afternoon"],
+                        "description": "Preferred time of day"
+                      },
+                      "topic": {
+                        "type": "string",
+                        "description": "Topic or purpose of the appointment"
+                      }
+                    },
+                    "required": ["name", "email", "preferredDate", "preferredTime"]
+                  }
+                }
+              },
+              "example": {
+                "toolInput": {
+                  "name": "Claire",
+                  "email": "claire@example.com",
+                  "preferredDate": "2025-06-05",
+                  "preferredTime": "morning",
+                  "topic": "Follow-up after quote session"
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A scheduling response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "output": {
+                      "type": "string",
+                      "description": "Response message with availability info"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
