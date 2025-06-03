@@ -1,10 +1,9 @@
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc.js';
-import timezone from 'dayjs/plugin/timezone.js'; // ← this is built into dayjs
+import timezone from 'dayjs/plugin/timezone.js';
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
-
 
 import dotenv from 'dotenv';
 dotenv.config();
@@ -12,7 +11,6 @@ console.log('🔐 CALCOM_API_KEY:', process.env.CALCOM_API_KEY ? '✔️ present
 
 import express from 'express';
 import axios from 'axios';
-
 
 const app = express();
 app.use(express.json());
@@ -34,7 +32,7 @@ app.post('/invoke', async (req, res) => {
     const input = req.body.toolInput || {};
     const name = input.name || 'Client';
     const email = input.email;
-    const preferredDate = input.preferredDate; // in YYYY-MM-DD
+    const preferredDate = input.preferredDate; // YYYY-MM-DD
     const preferredTime = input.preferredTime?.toLowerCase(); // "morning" or "afternoon"
     const notes = input.topic || 'Follow-up consultation';
 
@@ -58,11 +56,12 @@ app.post('/invoke', async (req, res) => {
 
     const slots = response.data?.data?.slots?.[preferredDate] || [];
 
+    // ✅ Convert slot time to Edmonton and filter by local hour
     const matchingSlots = slots.filter(slot => {
-      const hour = dayjs.utc(slot.time).hour();
+      const localHour = dayjs(slot.time).tz(DEFAULT_TIMEZONE).hour();
       return preferredTime === 'morning'
-        ? hour >= 9 && hour < 12
-        : hour >= 13 && hour < 17;
+        ? localHour >= 5 && localHour < 12
+        : localHour >= 12 && localHour < 17;
     });
 
     if (matchingSlots.length === 0) {
@@ -72,22 +71,23 @@ app.post('/invoke', async (req, res) => {
     }
 
     const chosenSlot = matchingSlots[0];
+    const formattedTime = dayjs(chosenSlot.time).tz(DEFAULT_TIMEZONE).format('h:mm A');
 
     return res.json({
-      output: `Hi ${name}. I found an available time on ${preferredDate} at ${dayjs(chosenSlot.time).tz(DEFAULT_TIMEZONE).format('h:mm A')} (Edmonton time). Please confirm if this works or choose another time.`
+      output: `Hi ${name}. I found an available time on ${preferredDate} at ${formattedTime} (Edmonton time). Please confirm if this works or choose another time.`
     });
 
   } catch (err) {
-  console.error('❌ Booking error:', {
-    status: err?.response?.status,
-    headers: err?.response?.headers,
-    data: err?.response?.data,
-    message: err.message
-  });
-  return res.status(500).json({
-    output: `Sorry, ${req.body.toolInput?.name || 'client'}, something went wrong while checking availability.`
-  });
-}
+    console.error('❌ Booking error:', {
+      status: err?.response?.status,
+      headers: err?.response?.headers,
+      data: err?.response?.data,
+      message: err.message
+    });
+    return res.status(500).json({
+      output: `Sorry, ${req.body.toolInput?.name || 'client'}, something went wrong while checking availability.`
+    });
+  }
 });
 
 const port = process.env.PORT || 3000;
