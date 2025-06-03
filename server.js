@@ -38,18 +38,26 @@ const calcom = axios.create({
 
 app.post('/invoke', async (req, res) => {
   try {
+    console.log('\n📥 Received /invoke request');
     const input = req.body.toolInput || {};
-    const name = input.name || 'Client';
-    const email = input.email;
-    const preferredDate = input.preferredDate; // YYYY-MM-DD
-    const preferredTime = input.preferredTime?.toLowerCase(); // "morning" or "afternoon"
-    const notes = input.topic || 'Follow-up consultation';
+    const { name, email, preferredDate, preferredTime, topic } = input;
+
+    console.log('🔎 toolInput:', {
+      name,
+      email,
+      preferredDate,
+      preferredTime,
+      topic
+    });
 
     if (!email || !preferredDate || !preferredTime) {
+      console.log('❌ Missing required fields. Responding with error.');
       return res.status(400).json({
-        output: `Hi ${name}. Please provide an email, preferred date (YYYY-MM-DD), and time of day (morning or afternoon).`
+        output: `Hi ${name || 'client'}. Please provide an email, preferred date (YYYY-MM-DD), and time of day (morning or afternoon).`
       });
     }
+
+    console.log(`🕓 Checking availability on ${preferredDate} in the ${preferredTime}`);
 
     const startTime = `${preferredDate}T00:00:00.000Z`;
     const endTime = `${preferredDate}T23:59:59.999Z`;
@@ -65,15 +73,15 @@ app.post('/invoke', async (req, res) => {
 
     const slots = response.data?.data?.slots?.[preferredDate] || [];
 
-    // ✅ Convert slot time to Edmonton and filter by local hour
     const matchingSlots = slots.filter(slot => {
-      const localHour = dayjs(slot.time).tz(DEFAULT_TIMEZONE).hour();
+      const hour = dayjs(slot.time).tz(DEFAULT_TIMEZONE).hour();
       return preferredTime === 'morning'
-        ? localHour >= 5 && localHour < 12
-        : localHour >= 12 && localHour < 17;
+        ? hour >= 5 && hour < 12
+        : hour >= 12 && hour < 17;
     });
 
     if (matchingSlots.length === 0) {
+      console.log('🚫 No matching slots found.');
       return res.json({
         output: `Hi ${name}. Sorry, there are no available ${preferredTime} slots on ${preferredDate}. Please try another date or time.`
       });
@@ -81,6 +89,7 @@ app.post('/invoke', async (req, res) => {
 
     const chosenSlot = matchingSlots[0];
     const formattedTime = dayjs(chosenSlot.time).tz(DEFAULT_TIMEZONE).format('h:mm A');
+    console.log(`✅ Found slot: ${chosenSlot.time} (${formattedTime} Edmonton time)`);
 
     return res.json({
       output: `Hi ${name}. I found an available time on ${preferredDate} at ${formattedTime} (Edmonton time). Please confirm if this works or choose another time.`
